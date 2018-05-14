@@ -74,6 +74,7 @@ fi
 
 ############### test targets ################################
 do_tests() {
+  echo [[[[[-- do_tests --]]]]]
   py.test -n 3 --duration 20 pycket
 }
 
@@ -95,11 +96,10 @@ do_coverage() {
 
 
 do_translate() {
+  echo [[[[[-- do_translate --]]]]]
   ../pypy/rpython/bin/rpython -Ojit --batch targetpycket.py
   #do_performance_smoke
 }
-
-
 
 # do_performance_smoke() {
 #   _smoke() {
@@ -132,6 +132,7 @@ do_translate() {
 # }
 
 do_translate_nojit_and_racket_tests() {
+  echo [[[[[-- do_translate_nojit_and_racket_tests --]]]]]
   ../pypy/rpython/bin/rpython --batch targetpycket.py
   ../pypy/pytest.py pycket/test/racket-tests.py
 }
@@ -139,6 +140,7 @@ do_translate_nojit_and_racket_tests() {
 ############################################################
 
 install_deps() {
+  echo [[[[[-- Install Deps --]]]]]
   pip install -I pytest-xdist || pip install -I --user pytest-xdist
   if [ $TEST_TYPE = 'coverage' ]; then
     pip install -I codecov pytest-cov || pip install -I codecov pytest-cov
@@ -146,7 +148,7 @@ install_deps() {
 }
 
 _activate_pypyenv() {
-  echo [[[[[]]]]] avtivate_pypyenv
+  echo [[[[[-- avtivate_pypyenv --]]]]]
   if [ -f ~/virtualenv/pypy/bin/activate ]; then
     deactivate 2>&1 >/dev/null || true
     source ~/virtualenv/pypy/bin/activate
@@ -154,27 +156,30 @@ _activate_pypyenv() {
 }
 
 install_pypy() {
+  echo [[[[[-- install_pypy --]]]]]
   # PYPY_PAK=pypy-c-jit-latest-linux64.tar.bz2
   # PYPY_URL=http://buildbot.pypy.org/nightly/release-4.0.x/pypy-c-jit-latest-linux64.tar.bz2
   #PYPY_PAK=pypy-4.0.1-linux64.tar.bz2
   PYPY_PAK=pypy2-v6.0.0-linux64.tar.bz2
   PYPY_URL=https://bitbucket.org/pypy/pypy/downloads/$PYPY_PAK
-
+  echo [[[[[-- Getting : $PYPY_URL --]]]]]
   wget $PYPY_URL
   tar xjf $PYPY_PAK
   # ln -s pypy-c-*-linux64 pypy-c
   ln -s pypy2-v6.0.0-linux64 pypy-c
+  echo [[[[[-- Install/upgrade virtuanenv --]]]]]
   pip install -I --upgrade virtualenv
-  echo [[[[[]]]]] Creating virtualenv
+  echo [[[[[-- Creating the virtualenv --]]]]]
   virtualenv --no-wheel --no-setuptools --no-pip -p pypy-c/bin/pypy ~/virtualenv/pypy
   # fix virtualenv...
   rm ~/virtualenv/pypy/bin/libpypy-c.so
   cp pypy-c/bin/libpypy-c.so ~/virtualenv/pypy/bin/libpypy-c.so
-  echo [[[[[]]]]] Done setting up the virtualenv, activating now
+  echo [[[[[-- Done setting up the virtualenv, activating now --]]]]]
   _activate_pypyenv
 }
 
 install_racket() {
+  echo [[[[[-- install_racket --]]]]]
   ###
   #  Get and install Racket
   ###
@@ -260,7 +265,7 @@ shift
 
 case "$COMMAND" in
   prepare)
-    echo "Preparing dependencies"
+    echo [[[[[-- Preparing dependencies --]]]]]
     install_pypy
     #install_racket
     install_deps
