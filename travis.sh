@@ -146,8 +146,9 @@ install_deps() {
 }
 
 _activate_pypyenv() {
+  echo [[[[[]]]]] avtivate_pypyenv
   if [ -f ~/virtualenv/pypy/bin/activate ]; then
-    #deactivate 2>&1 >/dev/null || true
+    deactivate 2>&1 >/dev/null || true
     source ~/virtualenv/pypy/bin/activate
   fi
 }
@@ -164,10 +165,12 @@ install_pypy() {
   # ln -s pypy-c-*-linux64 pypy-c
   ln -s pypy2-v6.0.0-linux64 pypy-c
   pip install -I --upgrade virtualenv
+  echo [[[[[]]]]] Creating virtualenv
   virtualenv --no-wheel --no-setuptools --no-pip -p pypy-c/bin/pypy ~/virtualenv/pypy
   # fix virtualenv...
   rm ~/virtualenv/pypy/bin/libpypy-c.so
   cp pypy-c/bin/libpypy-c.so ~/virtualenv/pypy/bin/libpypy-c.so
+  echo [[[[[]]]]] Done setting up the virtualenv, activating now
   _activate_pypyenv
 }
 
