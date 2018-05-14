@@ -178,7 +178,8 @@ install_pypy() {
   print_console "Install/upgrade virtuanenv"
   pip install -I --upgrade virtualenv
   print_console "Creating the virtualenv"
-  virtualenv --no-wheel --no-setuptools --no-pip -p pypy-c/bin/pypy ~/virtualenv/pypy
+  #virtualenv --no-wheel --no-setuptools --no-pip -p pypy-c/bin/pypy ~/virtualenv/pypy
+  virtualenv --no-wheel --no-setuptools --no-pip ~/virtualenv/pypy
   # fix virtualenv...
   rm ~/virtualenv/pypy/bin/libpypy-c.so
   cp pypy-c/bin/libpypy-c.so ~/virtualenv/pypy/bin/libpypy-c.so
