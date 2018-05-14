@@ -156,21 +156,19 @@ install_pypy() {
   # PYPY_PAK=pypy-c-jit-latest-linux64.tar.bz2
   # PYPY_URL=http://buildbot.pypy.org/nightly/release-4.0.x/pypy-c-jit-latest-linux64.tar.bz2
   #PYPY_PAK=pypy-4.0.1-linux64.tar.bz2
-  hg clone https://bitbucket.org/pypy/pypy
-
-  PYPY_PAK=pypy2-v5.8.0-linux64.tar.bz2
+  PYPY_PAK=pypy2-v6.0.0-linux64.tar.bz2
   PYPY_URL=https://bitbucket.org/pypy/pypy/downloads/$PYPY_PAK
 
   wget $PYPY_URL
   tar xjf $PYPY_PAK
   # ln -s pypy-c-*-linux64 pypy-c
-  ln -s pypy2-v5.8.0-linux64 pypy-c
-  # pip install -I --upgrade virtualenv
-  # virtualenv --no-wheel --no-setuptools --no-pip -p pypy-c/bin/pypy ~/virtualenv/pypy
-  # # fix virtualenv...
-  # rm ~/virtualenv/pypy/bin/libpypy-c.so
-  # cp pypy-c/bin/libpypy-c.so ~/virtualenv/pypy/bin/libpypy-c.so
-  # _activate_pypyenv
+  ln -s pypy2-v6.0.0-linux64 pypy-c
+  pip install -I --upgrade virtualenv
+  virtualenv --no-wheel --no-setuptools --no-pip -p pypy-c/bin/pypy ~/virtualenv/pypy
+  # fix virtualenv...
+  rm ~/virtualenv/pypy/bin/libpypy-c.so
+  cp pypy-c/bin/libpypy-c.so ~/virtualenv/pypy/bin/libpypy-c.so
+  _activate_pypyenv
 }
 
 install_racket() {
