@@ -71,10 +71,17 @@ else
   TIME_IT=_time_bsd
 fi
 
+GREEN=$(tput setaf 2)
+NO_ATTRIB=$(tput sgr0)
+RIGHT_SIDE=$(tput cols)
+
+print_console() {
+    printf '%s%*s%s\n' "$GREEN" $RIGHT_SIDE "[$1]" "$NO_ATTRIB"
+}
 
 ############### test targets ################################
 do_tests() {
-  echo [[[[[-- do_tests --]]]]]
+  print_console do_tests
   py.test -n 3 --duration 20 pycket
 }
 
@@ -90,13 +97,13 @@ do_coverage() {
   py.test --assert=plain -n 3 -k "$COVERAGE_TESTSUITE" --cov . --cov-report=term pycket
   codecov -X gcov search
   set -e
-  echo '>> Testing whether coverage is over 80%'
+  print_console '>> Testing whether coverage is over 80%'
   coverage report -i --fail-under=80 --omit='pycket/test/*','*__init__*'
 }
 
 
 do_translate() {
-  echo [[[[[-- do_translate --]]]]]
+    print_console do_translate
   ../pypy/rpython/bin/rpython -Ojit --batch targetpycket.py
   #do_performance_smoke
 }
@@ -132,7 +139,7 @@ do_translate() {
 # }
 
 do_translate_nojit_and_racket_tests() {
-  echo [[[[[-- do_translate_nojit_and_racket_tests --]]]]]
+  print_console do_translate_nojit_and_racket_tests
   ../pypy/rpython/bin/rpython --batch targetpycket.py
   ../pypy/pytest.py pycket/test/racket-tests.py
 }
@@ -140,7 +147,7 @@ do_translate_nojit_and_racket_tests() {
 ############################################################
 
 install_deps() {
-  echo [[[[[-- Install Deps --]]]]]
+  print_console install_deps
   pip install -I pytest-xdist || pip install -I --user pytest-xdist
   if [ $TEST_TYPE = 'coverage' ]; then
     pip install -I codecov pytest-cov || pip install -I codecov pytest-cov
@@ -148,7 +155,7 @@ install_deps() {
 }
 
 _activate_pypyenv() {
-  echo [[[[[-- avtivate_pypyenv --]]]]]
+  print_console _avtivate_pypyenv
   if [ -f ~/virtualenv/pypy/bin/activate ]; then
     deactivate 2>&1 >/dev/null || true
     source ~/virtualenv/pypy/bin/activate
@@ -156,30 +163,30 @@ _activate_pypyenv() {
 }
 
 install_pypy() {
-  echo [[[[[-- install_pypy --]]]]]
+  print_console install_pypy
   # PYPY_PAK=pypy-c-jit-latest-linux64.tar.bz2
   # PYPY_URL=http://buildbot.pypy.org/nightly/release-4.0.x/pypy-c-jit-latest-linux64.tar.bz2
   #PYPY_PAK=pypy-4.0.1-linux64.tar.bz2
   PYPY_PAK=pypy2-v6.0.0-linux64.tar.bz2
   PYPY_URL=https://bitbucket.org/pypy/pypy/downloads/$PYPY_PAK
-  echo [[[[[-- Getting : $PYPY_URL --]]]]]
+  print_console "Getting : $PYPY_URL"
   wget $PYPY_URL
   tar xjf $PYPY_PAK
   # ln -s pypy-c-*-linux64 pypy-c
   ln -s pypy2-v6.0.0-linux64 pypy-c
-  echo [[[[[-- Install/upgrade virtuanenv --]]]]]
+  print_console "Install/upgrade virtuanenv"
   pip install -I --upgrade virtualenv
-  echo [[[[[-- Creating the virtualenv --]]]]]
+  print_console "Creating the virtualenv"
   virtualenv --no-wheel --no-setuptools --no-pip -p pypy-c/bin/pypy ~/virtualenv/pypy
   # fix virtualenv...
   rm ~/virtualenv/pypy/bin/libpypy-c.so
   cp pypy-c/bin/libpypy-c.so ~/virtualenv/pypy/bin/libpypy-c.so
-  echo [[[[[-- Done setting up the virtualenv, activating now --]]]]]
+  print_console "Done setting up the virtualenv, activating now"
   _activate_pypyenv
 }
 
 install_racket() {
-  echo [[[[[-- install_racket --]]]]]
+  print_console "install_racket"
   ###
   #  Get and install Racket
   ###
@@ -214,6 +221,7 @@ install_racket() {
 }
 
 fetch_pypy() {
+  print_console "fetch_pypy"
   ###
   #  Prepare pypy
   ###
@@ -265,13 +273,13 @@ shift
 
 case "$COMMAND" in
   prepare)
-    echo [[[[[-- Preparing dependencies --]]]]]
+    print_console "Preparing dependencies : install_pypy - install_deps"
     install_pypy
     #install_racket
     install_deps
     ;;
   install)
-    echo "Preparing pypy and racket"
+    print_console "Preparing pypy and racket : print_console - fetch_pypy"
     fetch_pypy
     #prepare_racket
     ;;
@@ -279,14 +287,14 @@ case "$COMMAND" in
     export PYTHONPATH=$PYTHONPATH:../pypy:pycket
     cp ../pypy/pytest.ini . 2>&1 >/dev/null || true
     if [ -z "$1" ]; then
-        echo "Please tell what to test, see .travis.yml"
+        print_console  "Please tell what to test, see .travis.yml"
         _help
         exit 1
     else
       TEST_TYPE="$1"
       shift
     fi
-    echo "Running $TEST_TYPE"
+    print_console "Running $TEST_TYPE"
     do_$TEST_TYPE
     ;;
   *)
