@@ -256,7 +256,7 @@ fi
 COMMAND="$1"
 shift
 
-_activate_pypyenv
+#_activate_pypyenv
 
 case "$COMMAND" in
   prepare)
