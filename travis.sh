@@ -167,9 +167,9 @@ install_pypy() {
   # PYPY_PAK=pypy-c-jit-latest-linux64.tar.bz2
   # PYPY_URL=http://buildbot.pypy.org/nightly/release-4.0.x/pypy-c-jit-latest-linux64.tar.bz2
   #PYPY_PAK=pypy-4.0.1-linux64.tar.bz2
-  PYPY_PAK=pypy2-v6.0.0-linux64.tar.bz2
+  PYPY_PAK=pypy2-v5.8.0-linux64.tar.bz2
   PYPY_URL=https://bitbucket.org/pypy/pypy/downloads/$PYPY_PAK
-  print_console "Getting : $PYPY_URL"
+  print_console "Getting pypy : "
   wget $PYPY_URL
   tar xjf $PYPY_PAK
   # ln -s pypy-c-*-linux64 pypy-c
