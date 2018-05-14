@@ -3,11 +3,6 @@ cache: apt
 sudo: false
 python:
 - pypy
-notifications:
-  irc:
-    channels:
-    - chat.freenode.net#pycket
-    use_notice: false
 env:
   global:
   - PATH=./racket/bin:$PATH
