@@ -137,7 +137,7 @@ do_translate() {
 #   _smoke 2.5 pycket/test/treerec.rkt
 #   _smoke 1.5 pycket/test/hashtable-benchmark.rkt
 #   echo ; echo ">> Smoke cleared" ; echo
-# }
+
 
 do_translate_nojit_and_racket_tests() {
   print_console do_translate_nojit_and_racket_tests
@@ -202,29 +202,33 @@ install_racket() {
   # sudo apt-get update
   # sudo apt-get install -qq racket
 
-  if [ "$(lsb_release -s -i)" = 'Debian' ]; then
-    OS_PART=i386-linux-wheezy
-  else
-    OS_PART=x86_64-linux-precise
-  fi
+  # if [ "$(lsb_release -s -i)" = 'Debian' ]; then
+  #   OS_PART=i386-linux-wheezy
+  # else
+  #   OS_PART=x86_64-linux-precise
+  # fi
 
-  case "$DLHOST" in
-    utah)
-      INSTALLER=racket-$RACKET_VERSION-$OS_PART.sh
-      URL=http://www.cs.utah.edu/plt/snapshots/current/installers/$INSTALLER
-      ;;
-    northwestern)
-      INSTALLER=racket-test-$RACKET_VERSION-$OS_PART.sh
-      URL=http://plt.eecs.northwestern.edu/snapshots/current/installers/$INSTALLER
-      ;;
-    racket)
-      INSTALLER=racket-$RACKET_VERSION-$OS_PART.sh
-      URL=http://mirror.racket-lang.org/installers/$RACKET_VERSION/$INSTALLER
-      ;;
-    *) exit 1;;
-  esac
-  wget $URL
-  sh $INSTALLER --in-place --dest racket
+  # case "$DLHOST" in
+  #   utah)
+  #     INSTALLER=racket-$RACKET_VERSION-$OS_PART.sh
+  #     URL=http://www.cs.utah.edu/plt/snapshots/current/installers/$INSTALLER
+  #     ;;
+  #   northwestern)
+  #     INSTALLER=racket-test-$RACKET_VERSION-$OS_PART.sh
+  #     URL=http://plt.eecs.northwestern.edu/snapshots/current/installers/$INSTALLER
+  #     ;;
+  #   racket)
+  #     INSTALLER=racket-$RACKET_VERSION-$OS_PART.sh
+  #     URL=http://mirror.racket-lang.org/installers/$RACKET_VERSION/$INSTALLER
+  #     ;;
+  #   *) exit 1;;
+  # esac
+  # wget $URL
+  # sh $INSTALLER --in-place --dest racket
+
+  print_console "Fetching the latest Racket"
+  git clone git@github.com:racket/racket.git
+
 }
 
 fetch_pypy() {
@@ -282,7 +286,7 @@ case "$COMMAND" in
   prepare)
     print_console "Preparing dependencies : install_pypy - install_deps"
     install_pypy
-    #install_racket
+    install_racket
     #install_deps
     ;;
   install)
