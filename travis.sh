@@ -104,7 +104,7 @@ do_coverage() {
 
 do_translate() {
     print_console do_translate
-  ../pypy/rpython/bin/rpython -Ojit --batch targetpycket.py
+  ./pypy-c ../pypy/rpython/bin/rpython --batch -Ojit --translation-jit_opencoder_model=big targetpycket.py
   #do_performance_smoke
 }
 
@@ -168,7 +168,7 @@ install_pypy() {
   # PYPY_URL=http://buildbot.pypy.org/nightly/release-4.0.x/pypy-c-jit-latest-linux64.tar.bz2
   #PYPY_PAK=pypy-4.0.1-linux64.tar.bz2
 
-  print_console "Getting pypy repo : "
+  #print_console "Getting pypy repo : "
   #hg clone https://bitbucket.org/pypy/pypy
 
   PYPY_V=pypy2-v6.0.0-linux64
