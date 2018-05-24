@@ -90,6 +90,7 @@ do_tests() {
 # }
 
 do_coverage() {
+  pip install -I codecov pytest-cov || pip install --user -I codecov pytest-cov
   set +e
   # PyPy's pytest modifications clash with recent pytest-cov/coverage releases
   # So remove them on the CI.
