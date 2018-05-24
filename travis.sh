@@ -104,7 +104,7 @@ do_coverage() {
 
 do_translate() {
     print_console do_translate
-  ./pypy-c ../pypy/rpython/bin/rpython --batch -Ojit --translation-jit_opencoder_model=big targetpycket.py
+    ./pypy-c ../pypy/rpython/bin/rpython --batch -Ojit --translation-jit_opencoder_model=big targetpycket.py
   #do_performance_smoke
 }
 
@@ -140,8 +140,9 @@ do_translate() {
 
 do_translate_nojit_and_racket_tests() {
   print_console do_translate_nojit_and_racket_tests
-  ../pypy/rpython/bin/rpython --batch targetpycket.py
-  ../pypy/pytest.py pycket/test/racket-tests.py
+  ./pypy-c ../pypy/rpython/bin/rpython --batch targetpycket.py
+  #../pypy/rpython/bin/rpython --batch targetpycket.py
+  #../pypy/pytest.py pycket/test/racket-tests.py
 }
 
 ############################################################
