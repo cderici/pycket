@@ -227,7 +227,7 @@ install_racket() {
   # sh $INSTALLER --in-place --dest racket
 
   print_console "Fetching the latest Racket"
-  git clone git@github.com:racket/racket.git
+  git clone https://github.com/racket/racket.git
 
 }
 
