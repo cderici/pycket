@@ -90,12 +90,12 @@ do_tests() {
 # }
 
 do_coverage() {
-  pip install -I codecov pytest-cov || pip install --user -I codecov pytest-cov
+  pip install -I codecov || pip install --user -I codecov
   set +e
   # PyPy's pytest modifications clash with recent pytest-cov/coverage releases
   # So remove them on the CI.
-  rm -rf ../pypy/*pytest*
-  py.test --assert=plain -n 3 -k "$COVERAGE_TESTSUITE" --cov . --cov-report=term pycket
+  #rm -rf ../pypy/*pytest*
+  ./pypy-c ../pypy/pytest.py --assert=plain -n 3 -k "$COVERAGE_TESTSUITE" --cov . --cov-report=term pycket
   codecov -X gcov search
   set -e
   print_console '>> Testing whether coverage is over 80%'
