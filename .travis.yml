@@ -1,8 +1,6 @@
 language: python
 cache: apt
 sudo: false
-python:
-- pypy
 env:
   global:
   - PATH=./racket/bin:$PATH
