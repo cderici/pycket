@@ -81,8 +81,8 @@ print_console() {
 
 ############### test targets ################################
 do_tests() {
-  print_console do_tests
-  py.test -n 3 --duration 20 pycket
+  ./pypy-c ../pypy/pytest.py pycket --ignore=pycket/test -k test_linklet.py
+  #py.test -n 3 --duration 20 pycket
 }
 
 # do_test_bytecode() {
@@ -168,17 +168,18 @@ install_pypy() {
   # PYPY_URL=http://buildbot.pypy.org/nightly/release-4.0.x/pypy-c-jit-latest-linux64.tar.bz2
   #PYPY_PAK=pypy-4.0.1-linux64.tar.bz2
 
-  hg clone https://bitbucket.org/pypy/pypy
+  print_console "Getting pypy repo : "
+  #hg clone https://bitbucket.org/pypy/pypy
 
-  # PYPY_V=pypy2-v5.8.0-linux64
-  # PYPY_PAK=$PYPY_V.tar.bz2
-  # PYPY_URL=https://bitbucket.org/pypy/pypy/downloads/$PYPY_PAK
-  # print_console "Getting pypy : "
-  # wget $PYPY_URL
-  # tar xjf $PYPY_PAK
-  # # ln -s pypy-c-*-linux64 pypy-c
-  # ln -s $PYPY_V pypy-c
-  # print_console "Install/upgrade virtuanenv"
+  PYPY_V=pypy2-v6.0.0-linux64
+  PYPY_PAK=$PYPY_V.tar.bz2
+  PYPY_URL=https://bitbucket.org/pypy/pypy/downloads/$PYPY_PAK
+  print_console "Getting pypy binary : "
+  wget $PYPY_URL
+  tar xjf $PYPY_PAK
+  #ln -s pypy-c-*-linux64/bin/pypy pypy-c
+  ln -s $PYPY_V/bin/pypy pypy-c
+  #print_console "Install/upgrade virtuanenv"
   # pip install -I --upgrade virtualenv
   # print_console "Creating the virtualenv"
   # virtualenv --no-wheel --no-setuptools --no-pip -p pypy-c/bin/pypy ~/virtualenv/pypy
@@ -280,7 +281,7 @@ case "$COMMAND" in
     print_console "Preparing dependencies : install_pypy - install_deps"
     install_pypy
     #install_racket
-    install_deps
+    #install_deps
     ;;
   install)
     print_console "Preparing pypy and racket : print_console - fetch_pypy"
