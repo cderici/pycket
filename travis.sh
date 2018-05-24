@@ -150,7 +150,7 @@ install_deps() {
   print_console install_deps
   pip install -I pytest-xdist || pip install -I --user pytest-xdist
   if [ $TEST_TYPE = 'coverage' ]; then
-    pip install -I codecov pytest-cov || pip install -I codecov pytest-cov
+    pip install -I codecov pytest-cov || pip install --user -I codecov pytest-cov
   fi
 }
 
@@ -167,24 +167,26 @@ install_pypy() {
   # PYPY_PAK=pypy-c-jit-latest-linux64.tar.bz2
   # PYPY_URL=http://buildbot.pypy.org/nightly/release-4.0.x/pypy-c-jit-latest-linux64.tar.bz2
   #PYPY_PAK=pypy-4.0.1-linux64.tar.bz2
-  PYPY_V=pypy2-v5.8.0-linux64
-  PYPY_PAK=$PYPY_V.tar.bz2
-  PYPY_URL=https://bitbucket.org/pypy/pypy/downloads/$PYPY_PAK
-  print_console "Getting pypy : "
-  wget $PYPY_URL
-  tar xjf $PYPY_PAK
-  # ln -s pypy-c-*-linux64 pypy-c
-  ln -s $PYPY_V pypy-c
-  print_console "Install/upgrade virtuanenv"
-  pip install -I --upgrade virtualenv
-  print_console "Creating the virtualenv"
-  #virtualenv --no-wheel --no-setuptools --no-pip -p pypy-c/bin/pypy ~/virtualenv/pypy
-  virtualenv --no-wheel --no-setuptools --no-pip ~/virtualenv/pypy
-  # fix virtualenv...
-  rm ~/virtualenv/pypy/bin/libpypy-c.so
-  cp pypy-c/bin/libpypy-c.so ~/virtualenv/pypy/bin/libpypy-c.so
-  print_console "Done setting up the virtualenv, activating now"
-  _activate_pypyenv
+
+  hg clone https://bitbucket.org/pypy/pypy
+
+  # PYPY_V=pypy2-v5.8.0-linux64
+  # PYPY_PAK=$PYPY_V.tar.bz2
+  # PYPY_URL=https://bitbucket.org/pypy/pypy/downloads/$PYPY_PAK
+  # print_console "Getting pypy : "
+  # wget $PYPY_URL
+  # tar xjf $PYPY_PAK
+  # # ln -s pypy-c-*-linux64 pypy-c
+  # ln -s $PYPY_V pypy-c
+  # print_console "Install/upgrade virtuanenv"
+  # pip install -I --upgrade virtualenv
+  # print_console "Creating the virtualenv"
+  # virtualenv --no-wheel --no-setuptools --no-pip -p pypy-c/bin/pypy ~/virtualenv/pypy
+  # # fix virtualenv...
+  # rm ~/virtualenv/pypy/bin/libpypy-c.so
+  # cp pypy-c/bin/libpypy-c.so ~/virtualenv/pypy/bin/libpypy-c.so
+  # print_console "Done setting up the virtualenv, activating now"
+  # _activate_pypyenv
 }
 
 install_racket() {
