@@ -12,6 +12,9 @@ from rpython.rlib import jit
 
 @expose("symbol->string", [values.W_Symbol])
 def symbol_to_string(v):
+    return symbol_to_string_impl(v)
+
+def symbol_to_string_impl(v):
     asciivalue = v.asciivalue()
     if asciivalue is not None:
         return W_String.fromascii(asciivalue)
@@ -28,9 +31,39 @@ def string_to_symbol(v):
 def str2num(w_s, radix, convert_mode, decimal_mode):
     from rpython.rlib import rarithmetic, rfloat, rbigint
     from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
+    from rpython.rlib.rsre import rsre_re as re
+    import math
 
     s = w_s.as_str_utf8()
     try:
+        if re.match("[+-]?([\d]+)?.?\d+f\d", s):
+            f_parts = s.split("f")
+            if len(f_parts) > 2:
+                raise ParseStringError("invalid floating point number")
+
+            try:
+                numb = float(f_parts[0])
+                prec = int(f_parts[1])
+                p = math.pow(10, prec)
+            except ValueError:
+                return values.w_false
+
+            return values.W_Flonum(numb*p)
+
+        if re.match("[+-]?([\d]+)?.?\d+e\d", s):
+            e_parts = s.split("e")
+            if len(e_parts) > 2:
+                raise ParseStringError("invalid floating point number")
+
+            try:
+                num = float(e_parts[0])
+                exp = int(e_parts[1])
+                p = math.pow(10, exp)
+            except ValueError:
+                return values.w_false
+
+            return values.W_Flonum(num*p)
+
         if "." in s:
             if not radix.equal(values.W_Fixnum(10)): # FIXME
                 raise SchemeException("Floats with base different than 10 are not supported yet")

@@ -24,7 +24,7 @@ def save_callgraph(config, env):
 
 def make_entry_point(pycketconfig=None):
     from pycket.interpreter import ToplevelEnv
-    from pycket.error import SchemeException
+    from pycket.error import SchemeException, ExitException
     from pycket.option_helper import parse_args
     from pycket.values_string import W_String
     from pycket.racket_entry import load_inst_linklet_json, racket_entry
@@ -53,6 +53,21 @@ def make_entry_point(pycketconfig=None):
             level = int(names['verbosity_level'][0])
             w_global_config.set_config_val('verbose', level)
 
+            if 'not-implemented' in names:
+                print("These flags are not implemented yet : %s" % names['not-implemented'])
+
+        if 'stdout_level' in names: # -O
+            from pycket.prims.logging import w_main_logger
+            w_main_logger.set_stdout_level(names['stdout_level'][0])
+
+        if 'stderr_level' in names: # -W
+            from pycket.prims.logging import w_main_logger
+            w_main_logger.set_stderr_level(names['stderr_level'][0])
+
+        if 'syslog_level' in names: # -L
+            from pycket.prims.logging import w_main_logger
+            w_main_logger.set_syslog_level(names['syslog_level'][0])
+
         if retval != 0 or config is None:
             return retval
 
@@ -66,6 +81,8 @@ def make_entry_point(pycketconfig=None):
         try:
             if not config['stop']:
                 racket_entry(names, config, pycketconfig, current_cmd_args)
+        except ExitException, e:
+            pass
         finally:
             from pycket.prims.input_output import shutdown
             env = ToplevelEnv(pycketconfig)
