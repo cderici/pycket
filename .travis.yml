@@ -8,7 +8,6 @@ env:
   - TEST_TYPE=tests
   - TEST_TYPE=test_expander
   - PYPY_DONT_RUN_SUBPROCESS=1 TEST_TYPE=translate
-  - TEST_TYPE=translate_nojit_and_racket_tests
 matrix:
   fast_finish: true
   allow_failures:
