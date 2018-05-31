@@ -161,7 +161,8 @@ def racket_entry(names, config, pycketconfig, command_line_arguments):
         namespace_require.call_interpret([init_lib], pycketconfig)
         console_log("Init lib : %s loaded..." % (init_library))
 
-    put_newline = False
+    ran_eval = False
+    #put_newline = False
     if loads:
         for rator_str, rand_str in loads:
             if rator_str == "load":
@@ -176,6 +177,7 @@ def racket_entry(names, config, pycketconfig, command_line_arguments):
                 namespace_require.call_interpret([load_form], pycketconfig)
             elif rator_str == "eval":
                 # -e
+                ran_eval = True
                 console_log("(eval (read (open-input-string %s)))" % rand_str)
                 read_eval_print_string(rand_str, pycketconfig, False, debug)
 
@@ -191,7 +193,7 @@ def racket_entry(names, config, pycketconfig, command_line_arguments):
                                               pycketconfig)
         repl.call_interpret([], pycketconfig)
 
-    if put_newline:
+    if is_repl or not ran_eval: #put_newline:
         print
 
     exit = get_primitive("exit")
