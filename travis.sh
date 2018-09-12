@@ -271,6 +271,8 @@ shift
 
 #_activate_pypyenv
 
+2>&1
+
 case "$COMMAND" in
   prepare)
     print_console "Preparing dependencies : "

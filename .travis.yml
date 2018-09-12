@@ -1,6 +1,7 @@
 language: python
-cache: apt
-sudo: false
+cache: pip
+sudo: required
+dist: trusty
 env:
   global:
   - PATH=./racket/bin:$PATH
