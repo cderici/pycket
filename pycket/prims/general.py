@@ -79,10 +79,6 @@ for args in [
         ("struct-type-property-accessor-procedure?",
          values_struct.W_StructPropertyAccessor),
         ("box?", values.W_Box),
-        ("regexp?", values_regex.W_Regexp),
-        ("pregexp?", values_regex.W_PRegexp),
-        ("byte-regexp?", values_regex.W_ByteRegexp),
-        ("byte-pregexp?", values_regex.W_BytePRegexp),
         ("variable-reference?", values.W_VariableReference),
         ("thread-cell?", values.W_ThreadCell),
         ("thread-cell-values?", values.W_ThreadCellValues),
@@ -138,6 +134,30 @@ def datum_intern_literal(v):
 def byte_huh(val):
     if isinstance(val, values.W_Fixnum):
         return values.W_Bool.make(0 <= val.value <= 255)
+    return values.w_false
+
+@expose("regexp?", [values.W_Object])
+def regexp_huh(r):
+    if isinstance(r, values_regex.W_Regexp) or isinstance(r, values_regex.W_PRegexp):
+        return values.w_true
+    return values.w_false
+
+@expose("pregexp?", [values.W_Object])
+def pregexp_huh(r):
+    if isinstance(r, values_regex.W_PRegexp):
+        return values.w_true
+    return values.w_false
+
+@expose("byte-regexp?", [values.W_Object])
+def byte_regexp_huh(r):
+    if isinstance(r, values_regex.W_ByteRegexp) or isinstance(r, values_regex.W_BytePRegexp):
+        return values.w_true
+    return values.w_false
+
+@expose("byte-pregexp?", [values.W_Object])
+def byte_pregexp_huh(r):
+    if isinstance(r, values_regex.W_BytePRegexp):
+        return values.w_true
     return values.w_false
 
 @expose("true-object?", [values.W_Object])
@@ -370,6 +390,17 @@ for args in [ ("subprocess?",),
               ]:
     define_nyi(*args)
 
+@expose("unsafe-make-place-local", [values.W_Object])
+def unsafe_make_place_local(v):
+    return values.W_MBox(v)
+
+@expose("unsafe-place-local-ref", [values.W_MBox], simple=False)
+def unsafe_make_place_local(p, env, cont):
+    return p.unbox(env, cont)
+
+@expose("unsafe-place-local-set!", [values.W_MBox, values.W_Object], simple=False)
+def unsafe_make_place_local(p, v, env, cont):
+    return p.set_box(v, env, cont)
 
 @expose("set!-transformer?", [values.W_Object])
 def set_bang_transformer(v):
@@ -402,8 +433,9 @@ def find_main_config():
 @expose("version", [])
 def version():
     from pycket.env import w_version
-
     version = w_version.get_version()
+    if version == '':
+        version = "old-pycket"
     return values_string.W_String.fromascii("unknown version" if version is None else version)
 
 
@@ -501,6 +533,35 @@ def do_procedure_arity(proc, env, cont):
     arity = proc.get_arity()
     return arity_to_value(arity, env, cont)
 
+@continuation
+def mask_arity_cont(arity, env, cont, _vals):
+    from pycket.interpreter import check_one_val, return_value
+    from pycket.prims.numeric import arith_shift
+    import math
+
+    val = check_one_val(_vals)
+
+    if isinstance(val, values.W_Fixnum) or isinstance(val, values_struct.W_Struct):
+        if isinstance(val, values.W_Fixnum):
+            shifted_val = int(math.pow(2, val.value))
+        else:
+            shifted_val = int(math.pow(2, arity.at_least))
+
+        if arity.at_least != -1:
+            v = values.W_Fixnum(-shifted_val)
+        else:
+            v = values.W_Fixnum(shifted_val)
+
+        return return_value(v, env, cont)
+    else:
+        raise SchemeException("procedure-arity-mask : handling list arities is NYI")
+
+@expose("procedure-arity-mask", [procedure, default(values.W_Object, values.w_false)], simple=False)
+@jit.unroll_safe
+def do_procedure_arity_mask(proc, name, env, cont):
+    arity = proc.get_arity()
+    return arity_to_value(arity, env, mask_arity_cont(arity, env, cont))
+
 @make_procedure("default-read-handler",[values.W_InputPort, default(values.W_Object, None)], simple=False)
 def default_read_handler(ip, src, env, cont):
     # default to the "read" and "read-syntax" defined in the expander linklet
@@ -571,6 +632,32 @@ def procedure_result_arity(proc, env, cont):
     if arity is None:
         return return_multi_vals(values.w_false, env, cont)
     return arity_to_value(arity, env, cont)
+
+@expose("procedure-reduce-arity", [procedure, values.W_Object])
+def procedure_reduce_arity(proc, arity):
+    # FIXME : checks (keyword args etc)
+    assert isinstance(arity, Arity)
+    proc.set_arity(arity)
+    return proc
+
+@expose("procedure-reduce-arity-mask", [procedure, values.W_Fixnum, default(values.W_Object, values.w_false)])
+def procedure_reduce_arity(proc, mask, name):
+    import math
+
+    v = mask.value
+    # turn the given mask into an arity
+    if v < 0:
+        # it's an at least value
+        ar_value = int(math.log(abs(v))/math.log(2))
+        # for some reason the 2 argument log doesn't exist
+        ar = Arity([], ar_value)
+    else:
+        ar_value = int(math.log(v)/math.log(2))
+        ar = Arity([ar_value], -1)
+
+    # FIXME: what if the mask represents a list? see math_arity_cont
+    proc.set_arity(ar)
+    return proc
 
 @expose("procedure-struct-type?", [values_struct.W_StructType])
 def do_is_procedure_struct_type(struct_type):
@@ -1353,8 +1440,38 @@ def load(lib, env, cont):
     #return ast, env, cont
 
 expose_val("current-load-relative-directory", values_parameter.W_Parameter(values.w_false))
-# FIXME current-directory should be a function that "cd"s at the os level
-expose_val("current-directory", values_parameter.W_Parameter(values.W_Path(os.getcwd())))
+expose_val("current-write-relative-directory", values_parameter.W_Parameter(values.w_false))
+
+@make_procedure("current-directory-guard", [values.W_Object], simple=False)
+def current_directory_guard(path, env, cont):
+    from pycket.interpreter import return_value
+    # "cd"s at the os level
+    if not (isinstance(path, values_string.W_String) or isinstance(path, values.W_Path)):
+        raise SchemeException("current-directory: exptected a path-string? as argument 0, but got : %s" % path.tostring())
+    path_str = input_output.extract_path(path)
+
+    # if path is a complete-path?, set it
+    if path_str[0] == os.path.sep:
+        new_current_dir = path_str
+    else: # relative to the current one
+        current_dir = current_directory_param.get(cont)
+        current_path_str = input_output.extract_path(current_dir)
+        # let's hope that there's no symbolic links etc.
+        new_current_dir = os.path.normpath(os.path.sep.join([current_path_str, path_str]))
+
+    try:
+        os.chdir(new_current_dir)
+    except OSError:
+        raise SchemeException("path doesn't exist : %s" % path_str)
+
+    out_port = input_output.current_out_param.get(cont)
+    assert isinstance(out_port, values.W_OutputPort)
+    out_port.write("; now in %s\n" % new_current_dir)
+
+    return return_value(values.W_Path(new_current_dir), env, cont)
+
+current_directory_param = values_parameter.W_Parameter(values.W_Path(os.getcwd()), current_directory_guard)
+expose_val("current-directory", current_directory_param)
 
 w_unix_sym = values.W_Symbol.make("unix")
 w_windows_sym = values.W_Symbol.make("windows")
@@ -1461,9 +1578,13 @@ def bytes_to_path(bstr, typ):
     # FIXME : ignores the type, won't work for windows
     return values.W_Path(bstr.as_str())
 
-@expose("collect-garbage", [])
+major_gc_sym = values.W_Symbol.make("major")
+minor_gc_sym = values.W_Symbol.make("minor")
+incremental_gc_sym = values.W_Symbol.make("incremental")
+
+@expose("collect-garbage", [default(values.W_Symbol, major_gc_sym)])
 @jit.dont_look_inside
-def do_collect_garbage():
+def do_collect_garbage(request):
     from rpython.rlib import rgc
     rgc.collect()
     return values.w_void

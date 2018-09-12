@@ -4,7 +4,7 @@
 # utah or northwestern for prerelease, racket for stable
 #DLHOST=utah
 DLHOST=northwestern
-RACKET_VERSION=current
+RACKET_VERSION=7.0.0.19
 
 COVERAGE_TESTSUITE='test'
 
@@ -81,7 +81,7 @@ print_console() {
 
 ############### test targets ################################
 do_tests() {
-    ./pypy-c ../pypy/pytest.py pycket --ignore=pycket/old-test
+    ./pypy-c ../pypy/pytest.py pycket
 }
 
 do_test_expander() {
@@ -148,8 +148,8 @@ do_translate_nojit_and_racket_tests() {
 install_deps() {
   print_console install_deps
   pip install -I pytest-xdist || pip install -I --user pytest-xdist
-  if [ $TEST_TYPE = 'coverage' ]; then
-    pip install -I codecov pytest-cov || pip install --user -I codecov pytest-cov
+  if [ "$TEST_TYPE" = 'coverage' ]; then
+    pip install -I codecov pytest-cov || pip install -I codecov pytest-cov
   fi
 }
 
@@ -184,6 +184,41 @@ fetch_racket() {
   git clone https://github.com/racket/racket.git
 }
 
+install_racket() {
+  ###
+  #  Get and install Racket
+  ###
+  ## Debian
+  # sudo add-apt-repository -y ppa:plt/racket
+  # sudo apt-get update
+  # sudo apt-get install -qq racket
+
+  if [ "$(lsb_release -s -i)" = 'Debian' ]; then
+    OS_PART=i386-linux-wheezy
+  else
+    OS_PART=x86_64-linux-precise
+  fi
+
+  case "$DLHOST" in
+    utah)
+      INSTALLER=racket-$RACKET_VERSION-$OS_PART.sh
+      URL=http://www.cs.utah.edu/plt/snapshots/current/installers/$INSTALLER
+      ;;
+    northwestern)
+      INSTALLER=racket-test-$RACKET_VERSION-$OS_PART.sh
+      URL=http://plt.eecs.northwestern.edu/snapshots/current/installers/$INSTALLER
+      ;;
+    racket)
+      INSTALLER=racket-$RACKET_VERSION-$OS_PART.sh
+      URL=http://mirror.racket-lang.org/installers/$RACKET_VERSION/$INSTALLER
+      ;;
+    *) exit 1;;
+  esac
+  wget $URL
+  sh $INSTALLER --in-place --dest racket
+}
+
+
 fetch_pypy() {
   print_console "fetch_pypy"
   ###
@@ -197,7 +232,7 @@ fetch_pypy() {
 
 prepare_racket() {
   ## SET UP THE ENV VARS TO ACCESS RACKET LIBS
-  print_console "preparing racket"
+  raco pkg install -t dir pycket/pycket-lang/
 }
 
 expand_rkt() {
@@ -241,12 +276,13 @@ case "$COMMAND" in
     print_console "Preparing dependencies : "
     install_pypy
     #fetch_racket ####### FIXME
+    install_racket
     install_deps
     ;;
   install)
     print_console "Fetching pypy and racket : "
     fetch_pypy
-    #prepare_racket ###### FIXME
+    prepare_racket ###### FIXME
     ;;
   test)
     export PYTHONPATH=$PYTHONPATH:../pypy:pycket

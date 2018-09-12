@@ -249,7 +249,6 @@ def finalize_module(mod):
     from pycket.assign_convert import assign_convert
     mod = Context.normalize_term(mod)
     mod = assign_convert(mod)
-    mod.clean_caches()
     return mod
 
 def parse_module(json_string, bytecode_expand=False):
@@ -426,6 +425,8 @@ def parse_path(p):
     if not ModTable.builtin(srcmod):
         assert srcmod is not None
         srcmod = rpath.realpath(srcmod)
+    if srcmod == '#%read' or srcmod == '#%main':
+        srcmod = '#%kernel'
     return srcmod, path
 
 class ModuleMap(object):
@@ -751,7 +752,7 @@ def _to_num(json):
     obj = json.value_object()
     if "real" in obj:
         r = obj["real"]
-        return values.W_Flonum.make(r.value_float())
+        return values.W_Flonum.make(r.value_float(), True)
     if "real-part" in obj:
         r = obj["real-part"]
         i = obj["imag-part"]

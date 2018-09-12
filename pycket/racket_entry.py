@@ -1,6 +1,6 @@
 from pycket.prims.linklet import W_Linklet, to_rpython_list, do_compile_linklet, W_LinkletInstance
 from pycket.interpreter import check_one_val, Done
-from pycket.values import W_Symbol, W_WrappedConsProper, w_null, W_Object, Values, w_false, W_Path
+from pycket.values import W_Symbol, W_WrappedConsProper, w_null, W_Object, Values, w_false, w_true, W_Path, W_ThreadCell
 from pycket.values_string import W_String
 from pycket.vector import W_Vector
 from pycket.expand import JsonLoader
@@ -67,7 +67,7 @@ def set_path(kind_str, path_str):
 
     racket_sys_paths.set_path(W_Symbol.make(kind_str), W_Path(path_str))
 
-def initiate_boot_sequence(pycketconfig, command_line_arguments, debug=False, set_run_file="", set_collects_dir="", set_config_dir="", set_addon_dir=""):
+def initiate_boot_sequence(pycketconfig, command_line_arguments, use_compiled, debug=False, set_run_file="", set_collects_dir="", set_config_dir="", set_addon_dir=""):
     from pycket.env import w_version
 
     sysconfig = load_bootstrap_linklets(pycketconfig, debug)
@@ -119,10 +119,30 @@ def initiate_boot_sequence(pycketconfig, command_line_arguments, debug=False, se
     clcp = get_primitive("current-library-collection-paths")
     clcp.call_interpret([lib_coll_paths], pycketconfig)
 
-    console_log("(use-compiled-file-paths null)")
-    # don't use compiled code
+    console_log("(read-accept-compiled true)")
+    read_accept_compiled = get_primitive("read-accept-compiled")
+    read_accept_compiled.call_interpret([w_true], pycketconfig)
+
+    compiled_file_path = "pycket-compiled"
     ucfp = get_primitive("use-compiled-file-paths")
-    ucfp.call_interpret([w_null], pycketconfig)
+    if use_compiled:
+        console_log("(use-compiled-file-paths %s)" % compiled_file_path)
+        ucfp.call_interpret([W_WrappedConsProper.make(W_String.make(compiled_file_path), w_null)], pycketconfig)
+    else:
+        ucfp.call_interpret([w_null], pycketconfig)
+        console_log("(use-compiled-file-paths null)")
+
+    # set the current directory to the current directory
+    import os
+    c_dir = os.getcwd()
+    console_log("(current-directory %s)" % c_dir)
+    # We can't call the current-directory like a primitive
+    # because it prints a report to stdout
+    from pycket.values_parameter import top_level_config
+    from pycket.prims.general import current_directory_param
+    c = top_level_config.get(current_directory_param)
+    assert isinstance(c, W_ThreadCell)
+    c.set(W_Path(c_dir))
 
     console_log("...Boot Sequence Completed")
 
@@ -139,9 +159,9 @@ def namespace_require_kernel(pycketconfig):
 
 def racket_entry(names, config, pycketconfig, command_line_arguments):
 
-    loads, init_library, is_repl, no_lib, set_run_file, set_collects_dir, set_config_dir, set_addon_dir, just_kernel, debug, version, just_init = get_options(names, config)
+    loads, init_library, is_repl, no_lib, set_run_file, set_collects_dir, set_config_dir, set_addon_dir, just_kernel, debug, version, just_init, use_compiled = get_options(names, config)
 
-    initiate_boot_sequence(pycketconfig, command_line_arguments, debug, set_run_file, set_collects_dir, set_config_dir, set_addon_dir)
+    initiate_boot_sequence(pycketconfig, command_line_arguments, use_compiled, debug, set_run_file, set_collects_dir, set_config_dir, set_addon_dir)
 
     if just_init:
         return 0
@@ -188,7 +208,7 @@ def racket_entry(names, config, pycketconfig, command_line_arguments):
     if is_repl: # -i
         put_newline = True
         dynamic_require = get_primitive("dynamic-require")
-        repl = dynamic_require.call_interpret([W_Symbol.make("racket/private/repl"),
+        repl = dynamic_require.call_interpret([W_Symbol.make("racket/repl"),
                                                W_Symbol.make("read-eval-print-loop")],
                                               pycketconfig)
         repl.call_interpret([], pycketconfig)
@@ -288,6 +308,7 @@ def get_options(names, config):
     no_lib = config['no-lib']
     just_kernel = config['just_kernel']
     just_init = config['just-init']
+    use_compiled = config['use-compiled']
     debug = config['verbose']
     version = config['version']
 
@@ -310,6 +331,7 @@ is_repl          : %s
 no_lib           : %s
 just-#%%kernel    : %s
 just-init        : %s
+use-compiled     : %s
 """ % (loads_print_str,
        set_run_file,
        set_collects_dir,
@@ -319,8 +341,9 @@ just-init        : %s
        is_repl,
        no_lib,
        just_kernel,
-       just_init)
+       just_init,
+       use_compiled)
 
     console_log(log_str)
 
-    return loads, init_library, is_repl, no_lib, set_run_file, set_collects_dir, set_config_dir, set_addon_dir, just_kernel, debug, version, just_init
+    return loads, init_library, is_repl, no_lib, set_run_file, set_collects_dir, set_config_dir, set_addon_dir, just_kernel, debug, version, just_init, use_compiled

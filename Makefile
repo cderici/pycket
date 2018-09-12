@@ -72,9 +72,17 @@ debug: $(PYFILES)
 	$(RUNINTERP) $(RPYTHON) $(WITH_JIT) --lldebug targetpycket.py
 	cp pycket-c pycket-c-debug
 
+debug-no-jit: $(PYFILES)
+	$(RUNINTERP) $(RPYTHON) --lldebug targetpycket.py
+	cp pycket-c pycket-c-debug-no-jit
+
+compile-file:
+	# assumes pycket-c
+	./pycket-c compile-file-pycket.rkt -- $(FILE)
+
 setup:
-	# raco pkg install -t dir pycket/pycket-lang/ || \
-	# 	raco pkg update --link pycket/pycket-lang
+	raco pkg install -t dir pycket/pycket-lang/ || \
+	raco pkg update --link pycket/pycket-lang
 	hg -R $(PYPYPATH) pull && \
 	hg -R $(PYPYPATH) update
 
@@ -83,28 +91,28 @@ expander:
 	$(MAKE) -C linklet-extractor
 
 test:
-	$(RUNINTERP) $(PYTEST) pycket --ignore=pycket/old-test/
+	$(RUNINTERP) $(PYTEST) pycket
 
-test-expander:
-	$(RUNINTERP) $(PYTEST) pycket --durations=0 --use-expander --ignore=pycket/old-test/
+# test-expander:
+# 	$(RUNINTERP) $(PYTEST) pycket --durations=0 --use-expander --ignore=pycket/old-test/
 
-test-one:
+# test-one:
 
-	$(RUNINTERP) $(PYTEST) pycket --ignore=pycket/old-test/ -k test_${what}.py
+# 	$(RUNINTERP) $(PYTEST) pycket --ignore=pycket/old-test/ -k test_${what}.py
 
-test-one-expander:
+# test-one-expander:
 
-	$(RUNINTERP) $(PYTEST) pycket --durations=0 --use-expander --ignore=pycket/old-test/ -k test_${what}.py
+# 	$(RUNINTERP) $(PYTEST) pycket --durations=0 --use-expander --ignore=pycket/old-test/ -k test_${what}.py
 
-test-mark:
-	$(RUNINTERP) $(PYTEST) pycket --ignore=pycket/old-test/ -m ${mark}
+# test-mark:
+# 	$(RUNINTERP) $(PYTEST) pycket --ignore=pycket/old-test/ -m ${mark}
 
-test-mark-expander:
-	$(RUNINTERP) $(PYTEST) pycket --durations=0 --use-expander --ignore=pycket/old-test/ -m ${mark}
+# test-mark-expander:
+# 	$(RUNINTERP) $(PYTEST) pycket --durations=0 --use-expander --ignore=pycket/old-test/ -m ${mark}
 
-test-random: #$(PYFILES)
-	@echo "Not yet implemented"
-	# RUNINTERP PYTEST --random pycket --ignore=pycket/test/
+# test-random: #$(PYFILES)
+# 	@echo "Not yet implemented"
+# 	# RUNINTERP PYTEST --random pycket --ignore=pycket/test/
 
 coverage: pycket/test/coverage_report .coverage
 pycket/test/coverage_report .coverage: $(PYFILES)

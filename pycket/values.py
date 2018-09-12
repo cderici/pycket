@@ -73,7 +73,7 @@ class W_Cell(W_Object): # not the same as Racket's box
         if isinstance(v, W_Fixnum):
             v = W_CellIntegerStrategy(v.value)
         elif isinstance(v, W_Flonum):
-            v = W_CellFloatStrategy(v.value)
+            v = W_CellFloatStrategy(v.value, v.is_single_prec)
         self.w_value = v
 
     def get_val(self):
@@ -81,7 +81,7 @@ class W_Cell(W_Object): # not the same as Racket's box
         if isinstance(w_value, W_CellIntegerStrategy):
             return W_Fixnum(w_value.value)
         elif isinstance(w_value, W_CellFloatStrategy):
-            return W_Flonum(w_value.value)
+            return W_Flonum(w_value.value, w_value.is_single)
         return w_value
 
     def set_val(self, w_value):
@@ -111,10 +111,11 @@ class W_CellIntegerStrategy(W_Object):
         self.value = value
 
 class W_CellFloatStrategy(W_Object):
-    _attrs_ = ["value"]
+    _attrs_ = ["value", "is_single"]
     # can be stored in cells only, is mutated when a W_Flonum is stored
-    def __init__(self, value):
+    def __init__(self, value, is_single=False):
         self.value = value
+        self.is_single = is_single
 
 
 class W_Undefined(W_Object):
@@ -122,6 +123,8 @@ class W_Undefined(W_Object):
     _attrs_ = []
     def __init__(self):
         pass
+    def tostring(self):
+        return "#<unsafe-undefined>"
 
 w_unsafe_undefined = W_Undefined()
 
@@ -341,8 +344,8 @@ class W_Cons(W_List):
             return W_UnwrappedFixnumCons(car.value, cdr)
         elif isinstance(car, W_Flonum):
             if force_proper or cdr.is_proper_list():
-                return W_UnwrappedFlonumConsProper(car.value, cdr)
-            return W_UnwrappedFlonumCons(car.value, cdr)
+                return W_UnwrappedFlonumConsProper(car.value, car.is_single_prec, cdr)
+            return W_UnwrappedFlonumCons(car.value, car.is_single_prec, cdr)
         else:
             if force_proper or cdr.is_proper_list():
                 return W_WrappedConsProper(car, cdr)
@@ -420,13 +423,14 @@ class W_UnwrappedFixnumConsProper(W_UnwrappedFixnumCons):
 
 @add_copy_method(copy_method="clone")
 class W_UnwrappedFlonumCons(W_Cons):
-    _immutable_fields_ = ["_car", "_cdr"]
-    def __init__(self, a, d):
+    _immutable_fields_ = ["_car", "_car_is_single", "_cdr"]
+    def __init__(self, a, is_single, d):
         self._car = a
+        self._car_is_single = is_single
         self._cdr = d
 
     def car(self):
-        return W_Flonum(self._car)
+        return W_Flonum(self._car, self._car_is_single)
 
     def cdr(self):
         return self._cdr
@@ -758,19 +762,27 @@ W_Fixnum.cache = map(W_Fixnum.make, range(*W_Fixnum.INTERNED_RANGE))
 
 class W_Flonum(W_Real):
     _immutable_ = True
-    _attrs_ = _immutable_fields_ = ["value"]
+    _attrs_ = _immutable_fields_ = ["value", "is_single_prec"]
     errorname = "flonum"
 
-    def __init__(self, val):
+    def __init__(self, val, is_single_prec=False):
         self.value = val
+        self.is_single_prec = is_single_prec
 
     @staticmethod
-    def make(val):
-        return W_Flonum(val)
+    def make(val, is_single=False):
+        return W_Flonum(val, is_single)
 
     def tostring(self):
         from rpython.rlib.rfloat import formatd, DTSF_STR_PRECISION, DTSF_ADD_DOT_0
-        return formatd(self.value, 'g', DTSF_STR_PRECISION, DTSF_ADD_DOT_0)
+        RACKET_SINGLE_STR_PREC = 7
+        RACKET_DOUBLE_STR_PREC = 17
+
+        if self.is_single_prec:
+            rpython_str = formatd(self.value, 'g', RACKET_SINGLE_STR_PREC, DTSF_ADD_DOT_0)
+            return "%sf0" % rpython_str
+        else:
+            return formatd(self.value, 'g', RACKET_DOUBLE_STR_PREC, DTSF_ADD_DOT_0)
 
     def hash_equal(self, info=None):
         return compute_hash(self.value)
@@ -788,9 +800,21 @@ class W_Flonum(W_Real):
         return ll1 == ll2 or (math.isnan(v1) and math.isnan(v2))
 
 W_Flonum.ZERO   = W_Flonum(0.0)
+W_Flonum.ONE   = W_Flonum(1.0)
 W_Flonum.INF    = W_Flonum(float("inf"))
 W_Flonum.NEGINF = W_Flonum(-float("inf"))
 W_Flonum.NAN    = W_Flonum(float("nan"))
+
+class W_ExtFlonum(W_Object):
+    _immutable_ = True
+    _attrs_ = _immutable_fields_ = ["value_str"]
+    errorname = "extflonum"
+
+    def __init__(self, val_str):
+        self.value_str = val_str
+
+    def tostring(self):
+        return self.value_str
 
 class W_Bignum(W_Integer):
     _immutable_ = True
@@ -927,6 +951,9 @@ class W_Path(W_Object):
         if not isinstance(other, W_Path):
             return False
         return self.path == other.path
+    def write(self, port, env):
+        port.write("(p+ %s)" % self.path)
+
     def tostring(self):
         return "#<path:%s>" % self.path
 
@@ -1018,7 +1045,7 @@ class BytesMixin(object):
 
     def tostring(self):
         # TODO: No printable byte values should be rendered as base 8
-        return "#\"%s\"" % "".join(["\\%d" % ord(i) for i in self.value])
+        return "#\"%s\"" % "".join(["\\%o" % ord(i) for i in self.value])
 
     def as_bytes_list(self):
         return self.value
@@ -1138,6 +1165,9 @@ class W_MutableBytes(W_Bytes):
         self.value = check_list_of_chars(bs)
         make_sure_not_resized(self.value)
 
+    def as_bytes_list(self):
+        return self.value
+
     def immutable(self):
         return False
 
@@ -1164,6 +1194,9 @@ class W_ImmutableBytes(W_Bytes):
         self.value = check_list_of_chars(bs)
         make_sure_not_resized(self.value)
 
+    def as_bytes_list(self):
+        return self.value
+
     def immutable(self):
         return True
 
@@ -1177,8 +1210,8 @@ DEFINITELY_NO, MAYBE, DEFINITELY_YES = (-1, 0, 1)
 
 class W_Symbol(W_Object):
     errorname = "symbol"
-    _attrs_ = ["unreadable", "_isascii", "_unicodevalue", "utf8value"]
-    _immutable_fields_ = ["unreadable", "utf8value"]
+    _attrs_ = ["unreadable", "_isascii", "_unicodevalue", "utf8value", "bar_quoted"]
+    _immutable_fields_ = ["unreadable", "utf8value", "bar_quoted"]
 
     def __init__(self, val, unreadable=False):
         assert isinstance(val, str)
@@ -1186,6 +1219,13 @@ class W_Symbol(W_Object):
         self.utf8value = val
         self.unreadable = unreadable
         self._isascii = MAYBE
+        if " " in val:
+            self.bar_quoted = True
+        else:
+            self.bar_quoted = False
+
+    def is_bar_quoted(self):
+        return self.bar_quoted
 
     @staticmethod
     def _cache_is_ascii(self):
@@ -1279,7 +1319,7 @@ class W_Keyword(W_Object):
     def __init__(self, val):
         self.value = val
     def tostring(self):
-        return "'#:%s" % self.value
+        return "#:%s" % self.value
 
 class W_Procedure(W_Object):
     _attrs_ = []
@@ -1289,6 +1329,8 @@ class W_Procedure(W_Object):
         return True
     def immutable(self):
         return True
+    def set_arity(self, arity):
+        raise SchemeException("%s is not a procedure" % self.tostring())
     def call(self, args, env, cont):
         return self.call_with_extra_info(args, env, cont, None)
     def call_with_extra_info(self, args, env, cont, app):
@@ -1350,6 +1392,9 @@ class W_Prim(W_Procedure):
         if promote:
             self = jit.promote(self)
         return self.arity
+
+    def set_arity(self, arity):
+        self.arity = arity
 
     def get_result_arity(self):
         return self.result_arity
@@ -1990,8 +2035,8 @@ def wrap(*_pyval):
             return W_UnwrappedFixnumCons(car, cdr)
         if isinstance(car, float):
             if cdr.is_proper_list():
-                return W_UnwrappedFlonumConsProper(car, cdr)
-            return W_UnwrappedFlonumCons(car, cdr)
+                return W_UnwrappedFlonumConsProper(car, False, cdr)
+            return W_UnwrappedFlonumCons(car, False, cdr)
         if isinstance(car, W_Object):
             return W_Cons.make(car, cdr)
     assert False

@@ -36,10 +36,20 @@ def str2num(w_s, radix, convert_mode, decimal_mode):
 
     s = w_s.as_str_utf8()
     try:
-        if re.match("[+-]?([\d]+)?.?\d+f\d", s):
-            f_parts = s.split("f")
+        if re.match("[+-]?([\d]+)?.?\d+[tT]\d", s):
+            # it's an extflonum
+            return values.W_ExtFlonum(s)
+
+        if re.match("[+-]?([\d]+)?.?\d+[sf]\d", s):
+            if "f" in s:
+                f_parts = s.split("f")
+            elif "s" in s:
+                f_parts = s.split("s")
+            else:
+                raise ParseStringError("invalid floating point number : %s" % s)
+
             if len(f_parts) > 2:
-                raise ParseStringError("invalid floating point number")
+                raise ParseStringError("invalid floating point number : %s" % s)
 
             try:
                 numb = float(f_parts[0])
@@ -48,12 +58,12 @@ def str2num(w_s, radix, convert_mode, decimal_mode):
             except ValueError:
                 return values.w_false
 
-            return values.W_Flonum(numb*p)
+            return values.W_Flonum.make(numb*p, True)
 
         if re.match("[+-]?([\d]+)?.?\d+e\d", s):
             e_parts = s.split("e")
             if len(e_parts) > 2:
-                raise ParseStringError("invalid floating point number")
+                raise ParseStringError("invalid floating point number : %s" % s)
 
             try:
                 num = float(e_parts[0])
@@ -64,9 +74,9 @@ def str2num(w_s, radix, convert_mode, decimal_mode):
 
             return values.W_Flonum(num*p)
 
-        if "." in s:
+        if "." in s or re.match("[+-]?([\d]+)(\.[\d]+)?e[+-][\d]+$", s):
             if not radix.equal(values.W_Fixnum(10)): # FIXME
-                raise SchemeException("Floats with base different than 10 are not supported yet")
+                raise SchemeException("string->number : floats with base different than 10 are not supported yet : given number : %s - radix : %s" % (w_s.tostring(), radix.tostring()))
             return values.W_Flonum(rfloat.string_to_float(s))
         else:
             try:
@@ -156,9 +166,12 @@ def string_to_bytes_locale(str, errbyte, start, end):
          default(values.W_Fixnum, values.W_Fixnum.ZERO),
          default(values.W_Fixnum, None)])
 def bytes_to_string_latin(w_bytes, err, start, end):
-    # XXX Not a valid implementation
     str = w_bytes.as_str().decode("latin-1")
-    return W_String.fromunicode(str)
+
+    # From Racket Docs: The err-char argument is ignored, but present
+    # for consistency with the other operations.
+
+    return get_substring(W_String.fromunicode(str), start, end)
 
 @expose("string->bytes/latin-1",
         [W_String,
@@ -166,9 +179,24 @@ def bytes_to_string_latin(w_bytes, err, start, end):
          default(values.W_Fixnum, values.W_Fixnum.ZERO),
          default(values.W_Fixnum, None)])
 def string_to_bytes_latin(w_str, err, start, end):
-    # XXX Not a valid implementation
-    bytes = w_str.as_unicode().encode("latin-1")
-    return values.W_Bytes.from_string(bytes)
+    w_substring = get_substring(w_str, start, end)
+    w_bytes = w_substring.as_unicode().encode("latin-1")
+    char_bytes = list(w_bytes)
+
+    final_bytes = [None]*len(char_bytes)
+
+    for index, char in enumerate(char_bytes):
+        # it's enough to check only the substring for chars > 255
+        if ord(char) <=  255:
+            final_bytes[index] = char
+        else:
+            if err is values.w_false:
+                raise SchemeException("string->bytes/latin-1: string cannot be encoded in Latin-1 : %s" % w_substring.tostring())
+            else:
+                assert isinstance(err, values.W_Fixnum)
+                final_bytes[index] = chr(err.value)
+
+    return values.W_Bytes.from_string("".join(final_bytes))
 
 @expose("string->list", [W_String])
 def string_to_list(s):
@@ -257,7 +285,7 @@ def string(args):
         builder.append(char.value)
     return W_String.fromunicode(builder.build())
 
-@expose("string-downcase", [W_String])
+@expose(["string-downcase", "string-foldcase"], [W_String])
 def string_downcase(v):
     return v.lower()
 
@@ -313,6 +341,9 @@ def string_length(s1):
 
 @expose("substring", [W_String, values.W_Fixnum, default(values.W_Fixnum, None)])
 def substring(w_string, w_start, w_end):
+    return get_substring(w_string, w_start, w_end)
+
+def get_substring(w_string, w_start, w_end):
     """
     (substring str start [end]) -> string?
         str : string?
@@ -322,7 +353,7 @@ def substring(w_string, w_start, w_end):
     lenstring = w_string.length()
     start = w_start.value
     if start > lenstring or start < 0:
-        raise SchemeException("substring: end index out of bounds")
+        raise SchemeException("substring: start index out of bounds")
     if w_end is not None:
         end = w_end.value
         if end > lenstring or end < 0:
@@ -406,6 +437,7 @@ def bytes(args):
                 and 0 <= char.value <= 255):
             raise SchemeException("string: expected a character int")
         builder.append(chr(char.value))
+
     return values.W_Bytes.from_string(builder.build(), immutable=False)
 
 @expose("bytes-append")
@@ -580,6 +612,7 @@ def string_to_bytes_locale(bytes, errbyte, start, end):
 
 @expose("bytes->immutable-bytes", [values.W_Bytes])
 def bytes_to_immutable_bytes(b):
+
     if b.immutable():
         return b
     storage = b.as_bytes_list()
@@ -598,7 +631,7 @@ def bytes_to_list(bs):
 # Character
 
 
-@expose("char->integer", [values.W_Character])
+@expose(["unsafe-char->integer", "char->integer"], [values.W_Character])
 def char_to_integer(c):
     return values.W_Fixnum(ord(c.value))
 
@@ -650,11 +683,11 @@ def make_ci(op):
                   unichr(unicodedb.tolower(ord(b))))
     return lower
 
-for a in [("char<?", op.lt),
-          ("char<=?", op.le),
-          ("char=?", op.eq),
-          ("char>=?", op.ge),
-          ("char>?", op.gt),
+for a in [("char<?", op.lt), ("unsafe-char<?", op.lt),
+          ("char<=?", op.le), ("unsafe-char<=?", op.le),
+          ("char=?", op.eq), ("unsafe-char=?", op.eq),
+          ("char>=?", op.ge), ("unsafe-char>=?", op.ge),
+          ("char>?", op.gt), ("unsafe-char>?", op.gt),
           ("char-ci<?", make_ci(op.lt)),
           ("char-ci<=?", make_ci(op.le)),
           ("char-ci=?", make_ci(op.eq)),
