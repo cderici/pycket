@@ -15,13 +15,13 @@ env:
   - TEST_TYPE=old_tests
   - TEST_TYPE=new_tests_without_expander_linklet
   - TEST_TYPE=new_tests_using_expander_linklet
-  - PYPY_DONT_RUN_SUBPROCESS=1 TEST_TYPE=translate
-  - TEST_TYPE=translate_nojit_and_racket_tests
+  - PYPY_DONT_RUN_SUBPROCESS=1 TEST_TYPE=translate_pycket_c
+  - PYPY_DONT_RUN_SUBPROCESS=1 TEST_TYPE=translate_pycket_c_linklets
+  - TEST_TYPE=translate_nojit
+  - TEST_TYPE=translate_nojit_linklets
+  - PLTHOME=. TEST_TYPE=linklets_load_racket_base
 matrix:
   fast_finish: true
-  allow_failures:
-  - env: TEST_TYPE=new_tests_without_expander_linklet 
-  - env: TEST_TYPE=new_tests_using_expander_linklet
 before_install:
   - while sleep 9m; do printf "\n=====[ $SECONDS seconds still running ]=====\n"; done &
   -  ./travis.sh prepare

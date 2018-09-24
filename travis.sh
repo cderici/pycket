@@ -4,7 +4,7 @@
 # utah or northwestern for prerelease, racket for stable
 DLHOST=utah
 #DLHOST=northwestern
-RACKET_VERSION=7.0.0.19
+RACKET_VERSION=current
 
 COVERAGE_TESTSUITE='test'
 
@@ -110,10 +110,15 @@ do_coverage() {
 }
 
 
-do_translate() {
+do_translate_pycket_c() {
     print_console do_translate
     ./pypy-c ../pypy/rpython/bin/rpython --batch -Ojit --translation-jit_opencoder_model=big targetpycket.py
     #do_performance_smoke
+}
+
+do_translate_pycket_c_linklets() {
+    print_console do_translate_linklets
+    ./pypy-c ../pypy/rpython/bin/rpython --batch -Ojit --translation-jit_opencoder_model=big targetpycket.py --linklets
 }
 
 # do_performance_smoke() {
@@ -146,11 +151,22 @@ do_translate() {
 #   echo ; echo ">> Smoke cleared" ; echo
 
 
-do_translate_nojit_and_racket_tests() {
-  print_console do_translate_nojit_and_racket_tests
+do_translate_nojit() {
+  print_console do_translate_nojit
   ./pypy-c ../pypy/rpython/bin/rpython --batch targetpycket.py
 }
 
+do_translate_nojit_linklets() {
+  print_console do_translate_nojit_linklets
+  ./pypy-c ../pypy/rpython/bin/rpython --batch targetpycket.py --linklets
+}
+
+do_linklets_load_racket_base() {
+    print_console translating_with_linklets
+    ./pypy-c ../pypy/rpython/bin/rpython --batch -Ojit --translation-jit_opencoder_model=big targetpycket.py --linklets
+    print_console loading_racket_base
+    ./pycket-c-linklets --verbose 1 -c -I racket/base -e 1
+}
 ############################################################
 
 install_deps() {

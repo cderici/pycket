@@ -11,12 +11,14 @@ from pycket.pycket_json import loads
 from pycket.interpreter import *
 from pycket.env import ToplevelEnv
 from pycket import values
-
+from pycket.error import SchemeException
+from pycket.cont import continuation
+from pycket.values import to_list, w_false, w_true, W_Fixnum, W_Object, W_Flonum, W_Void, w_null
+from pycket.hash.base import W_HashTable
 from pycket.racket_entry import initiate_boot_sequence, namespace_require_kernel, read_eval_print_string, get_primitive
 from pycket.prims.linklet import *
 from pycket.test.utils import *
 from pycket.config import get_testing_config
-
 
 #
 # basic runners
@@ -42,21 +44,26 @@ if pytest.config.load_expander:
     print("(namespace-require '#%%kernel)")
     namespace_require_kernel(None)
 
-def run_sexp(body_sexp_str, v=None, just_return=False, extra="", equal_huh=False):
+def run_sexp(body_sexp_str, v=None, just_return=False, extra="", equal_huh=False, expect_to_fail=False):
     linkl_str = "(linklet () () %s %s)" % (extra, body_sexp_str)
     l = make_linklet(linkl_str)
-    result, _ = eval(l, empty_target(), just_return=just_return)
 
+    result, _ = eval(l, empty_target(), just_return=just_return)
+    if expect_to_fail and isinstance(result, W_Void):
+        raise SchemeException("test raised exception")
     if just_return:
         return result
 
     return check_result(result, v, equal_huh)
 
-def run_string(expr_str, v=None, just_return=False, equal_huh=False):
+def run_string(expr_str, v=None, just_return=False, equal_huh=False, expect_to_fail=False):
     # FIXME : removing \n is not ideal, as the test itself may have one
     expr_str = expr_str.replace('\n', '') # remove the newlines added by the multi line doctest
     expr_str = "(begin %s)" % expr_str
     result = read_eval_print_string(expr_str, None, return_val=True)
+
+    if expect_to_fail and isinstance(result, W_Void):
+        raise SchemeException("test raised exception")
 
     # FIXME: check for multiple results
     assert isinstance(result, W_Object)
@@ -65,15 +72,15 @@ def run_string(expr_str, v=None, just_return=False, equal_huh=False):
 
     return check_result(result, v, equal_huh)
 
-def run_expr_result(expr_str):
-    return run_expr(expr_str, just_return=True)
+def run_expr_result(expr_str, expect_to_fail=False):
+    return run_expr(expr_str, just_return=True, expect_to_fail=expect_to_fail)
 
-def run_expr(expr_str, v=None, just_return=False, extra="", equal_huh=False):
+def run_expr(expr_str, v=None, just_return=False, extra="", equal_huh=False, expect_to_fail=False):
     expr_str = extra + expr_str
     if pytest.config.load_expander:
-        return run_string(expr_str, v, just_return, equal_huh=equal_huh)
+        return run_string(expr_str, v, just_return, equal_huh=equal_huh, expect_to_fail=expect_to_fail)
     else:
-        return run_sexp(expr_str, v, just_return, equal_huh=equal_huh)
+        return run_sexp(expr_str, v, just_return, equal_huh=equal_huh, expect_to_fail=expect_to_fail)
 
 def check_result(result, expected, equal_huh=False):
     if equal_huh:
@@ -92,6 +99,9 @@ def check_result(result, expected, equal_huh=False):
         check = result
     else:
         raise Exception("I don't know this type yet : %s -- actual value: %s" % (result, result.tostring()))
+
+    if expected is None:
+        return result
 
     assert check == expected
 
@@ -234,9 +244,9 @@ def run_flo(p, v=None, stdlib=False, extra=""):
         assert ov.value == v
     return ov.value
 
-def run(p, v=None, stdlib=False, extra=""):
+def run(p, v=None, stdlib=False, extra="", expect_to_fail=False):
     if pytest.config.new_pycket:
-        return run_expr_result(p)
+        return run_expr_result(p, expect_to_fail=expect_to_fail)
     return run_mod_expr(p,v=v,stdlib=stdlib, extra=extra)
 
 def run_top(p, v=None, stdlib=False, extra=""):

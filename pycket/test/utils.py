@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import re
-from pycket.values import w_false, W_Cons, W_Symbol, w_null, W_Flonum, W_Fixnum, w_true, W_Bignum, W_Complex, W_Rational
+from pycket.values import w_false, W_Cons, W_Symbol, w_null, W_Flonum, W_Fixnum, w_true, W_Bignum, W_Complex, W_Rational, W_Character
 from pycket.values_string import W_String
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rarithmetic import string_to_int
@@ -35,7 +35,10 @@ dbg = False
 term_regex = r'''(?mx)
     \s*(?:
         (?P<l_paren>\()|
+        (?P<ll_paren>\[)|
         (?P<r_paren>\))|
+        (?P<rr_paren>\])|
+        (?P<char>\#\\[a-zA-Z0-9])|
         (?P<compnum>\-?(\d+[/.])?\d+[+-](\d+[/.])?\d+[ij])|
         (?P<rational>\-?\d+/\d+)|
         (?P<num>(\-?\d+\.\d+|\-?\d+)|\+inf.0|-inf.0|\+nan.0)|
@@ -93,10 +96,10 @@ def string_to_sexp(sexp):
     for termtypes in re.finditer(term_regex, sexp):
         term, value = [(t,v) for t,v in termtypes.groupdict().items() if v][0]
         if dbg: print("%-7s %-14s %-44r %-r" % (term, value, out, stack))
-        if   term == 'l_paren':
+        if   term == 'l_paren' or term == 'll_paren':
             stack.append(out)
             out = []
-        elif term == 'r_paren':
+        elif term == 'r_paren' or term == 'rr_paren':
             assert stack, "Trouble with nesting of brackets"
             tmpout, out = out, stack.pop(-1)
             out.append(tmpout)
@@ -113,6 +116,9 @@ def string_to_sexp(sexp):
         elif term == 'string':
             s = W_String.make(value[1:-1])
             out.append(s)
+        elif term == 'char':
+            c = W_Character(value[2:])
+            out.append(c)
         elif term == 'bool':
             if value in ['#t', '#T', 'true']:
                 b = w_true

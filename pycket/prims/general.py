@@ -14,8 +14,9 @@ from pycket import values_regex
 from pycket import vector as values_vector
 from pycket.error import SchemeException, UserException
 from pycket.foreign import W_CPointer, W_CType
+from pycket.hash.equal import W_EqualHashTable
 from pycket.hash.base import W_HashTable
-from pycket.hash.simple import (W_EqImmutableHashTable, make_simple_immutable_table)
+from pycket.hash.simple import (W_EqImmutableHashTable, W_EqvImmutableHashTable, W_EqMutableHashTable, W_EqvMutableHashTable, make_simple_immutable_table)
 from pycket.prims.expose import (unsafe, default, expose, expose_val, prim_env,
                                  procedure, define_nyi, subclass_unsafe, make_procedure)
 from pycket.prims.primitive_tables import *
@@ -60,7 +61,6 @@ def make_pred_eq(name, val):
 
 for args in [
         ("output-port?", values.W_OutputPort),
-        ("input-port?", values.W_InputPort),
         ("pair?", values.W_Cons),
         ("mpair?", values.W_MCons),
         ("number?", values.W_Number),
@@ -107,9 +107,6 @@ for args in [
         # FIXME: Assumes we only have eq-hashes
         # XXX tests tests tests tests!
         ("hash?", W_HashTable),
-        ("hash-eq?", W_HashTable),
-        ("hash-eqv?", W_HashTable),
-        ("hash-equal?", W_HashTable),
         ("hash-weak?", W_HashTable),
         ("cpointer?", W_CPointer),
         ("ctype?", W_CType),
@@ -125,6 +122,45 @@ for args in [
         ("null?", values.w_null),
         ]:
     make_pred_eq(*args)
+
+@expose("hash-equal?", [values.W_Object], simple=True)
+def hash_eq(obj):
+    inner = obj
+    if isinstance(obj, imp.W_ImpHashTable) or isinstance(obj, imp.W_ChpHashTable):
+        inner = obj.get_proxied()
+    return values.W_Bool.make(isinstance(inner, W_EqualHashTable))
+
+@expose("hash-eq?", [values.W_Object], simple=True)
+def hash_eq(obj):
+    inner = obj
+    if isinstance(obj, imp.W_ImpHashTable) or isinstance(obj, imp.W_ChpHashTable):
+        inner = obj.get_proxied()
+    eq_mutable = isinstance(inner, W_EqMutableHashTable)
+    eq_immutable = isinstance(inner, W_EqImmutableHashTable)
+    return values.W_Bool.make(eq_mutable or eq_immutable)
+
+@expose("hash-eqv?", [values.W_Object], simple=True)
+def hash_eqv(obj):
+    inner = obj
+    if isinstance(obj, imp.W_ImpHashTable) or isinstance(obj, imp.W_ChpHashTable):
+        inner = obj.get_proxied()
+    eqv_mutable = isinstance(inner, W_EqvMutableHashTable)
+    eqv_immutable = isinstance(inner, W_EqvImmutableHashTable)
+    return values.W_Bool.make(eqv_mutable or eqv_immutable)
+
+@expose("input-port?", [values.W_Object], simple=True)
+def input_port_huh(a):
+    if isinstance(a, values.W_InputPort):
+        return values.w_true
+    elif isinstance(a, values_struct.W_Struct):
+        st = a.struct_type()
+        in_port_prop = False
+        out_port_prop = False
+        for prop in st.props:
+            p, v = prop
+            if p is values_struct.w_prop_input_port:
+                return values.w_true
+    return values.w_false
 
 @expose("datum-intern-literal", [values.W_Object])
 def datum_intern_literal(v):
@@ -570,15 +606,29 @@ def default_read_handler(ip, src, env, cont):
     else:
         return prim_env[values.W_Symbol.make("read-syntax")].call([ip, src], env, cont)
 
-@expose("port-read-handler", [values.W_InputPort, default(values.W_Procedure, None)])
-def do_port_read_handler(ip, proc):
+@continuation
+def get_read_handler_cont(env, cont, _vals):
+    from pycket.interpreter import check_one_val, return_value
+    ip = check_one_val(_vals)
+    assert isinstance(ip, values.W_InputPort)
+    if ip.get_read_handler():
+        return return_value(ip.get_read_handler(), env, cont)
+    else:
+        return return_value(default_read_handler, env, cont)
 
+@expose("port-read-handler", [values.W_Object, default(values.W_Procedure, None)], simple=False)
+def do_port_read_handler(ip, proc, env, cont):
+    from pycket.interpreter import return_value
+    if not isinstance(ip, values.W_InputPort):
+        assert isinstance(ip, values_struct.W_Struct)
+        st = ip.struct_type()
+        return st.accessor.call([ip, values.W_Fixnum(0)], env, get_read_handler_cont(env, cont))
     if proc is None:
         #get
         if ip.get_read_handler():
-            return ip.get_read_handler()
+            return return_value(ip.get_read_handler(), env, cont)
         else:
-            return default_read_handler
+            return return_value(default_read_handler, env, cont)
     else:
         #set
         if proc is default_read_handler:
@@ -586,7 +636,7 @@ def do_port_read_handler(ip, proc):
         else:
             ip.set_read_handler(proc)
 
-        return values.w_void
+        return return_value(values.w_void, env, cont)
 
 @expose("procedure-arity?", [values.W_Object])
 @jit.unroll_safe

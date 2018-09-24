@@ -11,7 +11,8 @@ RPYTHON ?= $(PYPYPATH)/rpython/bin/rpython --batch
 
 
 TRANSLATE_TARGETS := translate-jit translate-no-callgraph translate-no-two-state \
-		translate-no-strategies translate-no-type-size-specialization
+		translate-no-strategies translate-no-type-size-specialization \
+		translate-jit-linklets
 
 PYFILES := $(shell find . -name '*.py' -type f)
 
@@ -35,6 +36,7 @@ all: translate-jit-all translate-no-jit
 
 
 translate-jit: pycket-c
+translate-jit-linklets: pycket-c-linklets
 translate-no-hidden-classes: pycket-c-no-hidden-classes
 translate-no-prune-env: pycket-c-no-prune-env
 translate-no-two-state: pycket-c-no-two-state
@@ -46,6 +48,9 @@ translate-no-jit: pycket-c-nojit
 pycket-c: $(PYFILES)
 	$(RUNINTERP) $(RPYTHON) $(WITH_JIT) targetpycket.py
 	cp pycket-c pycket-c-$(BRANCH)
+
+pycket-c-linklets: $(PYFILES)
+	$(RUNINTERP) $(RPYTHON) $(WITH_JIT) targetpycket.py --linklets
 
 pycket-c-no-hidden-classes: $(PYFILES)
 	$(RUNINTERP) $(RPYTHON) $(WITH_JIT) targetpycket.py --no-hidden-classes
@@ -68,6 +73,9 @@ pycket-c-no-type-size-specialization: $(PYFILES)
 pycket-c-nojit: $(PYFILES)
 	$(RUNINTERP) $(RPYTHON) targetpycket.py
 
+pycket-c-linklets-nojit: $(PYFILES)
+	$(RUNINTERP) $(RPYTHON) targetpycket.py --linklets
+
 debug: $(PYFILES)
 	$(RUNINTERP) $(RPYTHON) $(WITH_JIT) --lldebug targetpycket.py
 	cp pycket-c pycket-c-debug
@@ -77,8 +85,13 @@ debug-no-jit: $(PYFILES)
 	cp pycket-c pycket-c-debug-no-jit
 
 compile-file: pycket-c
-	./pycket-c compile-file-pycket.rkt -- $(FILE)
+	./pycket-c --new compile-file-pycket.rkt -- $(FILE)
 
+compile-racket-modules:
+	./pycket-c --new compile-file-pycket.rkt -- -b
+
+clean-compiled-files:
+	./pycket-c --new compile-file-pycket.rkt -- --clean
 setup:
 	raco pkg install -t dir pycket/pycket-lang/ || \
 	raco pkg update --link pycket/pycket-lang
@@ -97,23 +110,6 @@ test-new-no-expander:
 
 test-new-with-expander:
 	$(RUNINTERP) $(PYTEST) pycket --new --use-expander --ignore=pycket/test/test_old_entry_point.py
-
-# test-expander:
-# 	$(RUNINTERP) $(PYTEST) pycket --durations=0 --use-expander --ignore=pycket/old-test/
-
-# test-one:
-
-# 	$(RUNINTERP) $(PYTEST) pycket --ignore=pycket/old-test/ -k test_${what}.py
-
-# test-one-expander:
-
-# 	$(RUNINTERP) $(PYTEST) pycket --durations=0 --use-expander --ignore=pycket/old-test/ -k test_${what}.py
-
-# test-mark:
-# 	$(RUNINTERP) $(PYTEST) pycket --ignore=pycket/old-test/ -m ${mark}
-
-# test-mark-expander:
-# 	$(RUNINTERP) $(PYTEST) pycket --durations=0 --use-expander --ignore=pycket/old-test/ -m ${mark}
 
 # test-random: #$(PYFILES)
 # 	@echo "Not yet implemented"

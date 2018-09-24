@@ -10,7 +10,7 @@
      (define cdir (build-path (path-only src) "pycket-compiled"))
      (make-directory* cdir)
      (compile-file src (build-path cdir (path-add-suffix (file-name-from-path src) #".zo")))]
-    [(src dest) 
+    [(src dest)
      (compile-file src dest values)]
     [(src dest filter)
      (define in (open-input-file src))
@@ -51,7 +51,7 @@
                 (for ([r (in-port (lambda (in) (read-syntax src in)) in)])
                   (write (compile-syntax (filter (namespace-syntax-introduce r))) out))
                 (set! ok? #t))
-              (lambda () 
+              (lambda ()
                 (close-output-port out)))))
          (lambda ()
            (if ok?
@@ -61,11 +61,98 @@
       (lambda () (close-input-port in)))
      (build-path dest)]))
 
+(define racket-modules
+  (list (list "stx" "racket" "private")
+        (list "qq-and-or" "racket" "private")
+        (list "gen-temp" "racket" "private")
+        (list "cond" "racket" "private")
+        (list "member" "racket" "private")
+        (list "define-et-al" "racket" "private")
+        (list "ellipses" "racket" "private")
+        (list "sc" "racket" "private")
+        (list "stxcase" "racket" "private")
+        (list "template" "racket" "private")
+        (list "stxloc" "racket" "private")
+        (list "with-stx" "racket" "private")
+        (list "letstx-scheme" "racket" "private")
+        (list "stxcase-scheme" "racket" "private")
+        (list "qqstx" "racket" "private")
+        (list "norm-define" "racket" "private")
+        (list "define" "racket" "private")
+        (list "sort" "racket" "private")
+        (list "case" "racket" "private")
+        (list "logger" "racket" "private")
+        (list "more-scheme" "racket" "private")
+        (list "path" "racket" "private")
+        (list "path-list" "racket" "private")
+        (list "reading-param" "racket" "private")
+        (list "repl" "racket")
+        (list "misc" "racket" "private")
+        (list "kw-prop-key" "racket" "private")
+        (list "name" "racket" "private")
+        (list "procedure-alias" "racket" "private")
+        (list "kw" "racket" "private")
+        (list "stxparamkey" "racket" "private")
+        (list "stxparam" "racket" "private")
+        (list "stxparam-exptime" "racket")
+        (list "generic-methods" "racket" "private")
+        (list "struct-info" "racket" "private")
+        (list "define-struct" "racket" "private")
+        (list "require-transform" "racket")
+        (list "provide-transform" "racket")
+        (list "reqprov" "racket" "private")
+        (list "modbeg" "racket" "private")
+        (list "reverse" "racket" "private")
+        (list "for" "racket" "private")
+        (list "map" "racket" "private")
+        (list "kernstruct" "racket" "private")
+        (list "top-int" "racket" "private")))
+
+#;(collection-file-path "pre-base.rkt" "racket" "private")
+#;(collection-file-path "runtime-config.rkt" "racket")
+#;(collection-file-path "hash.rkt" "racket")
+#;(collection-file-path "list.rkt" "racket")
+#;(collection-file-path "string.rkt" "racket")
+#;(collection-file-path "kw-file.rkt" "racket" "private")
+#;(collection-file-path "namespace.rkt" "racket" "private")
+#;(collection-file-path "struct.rkt" "racket" "private")
+#;(collection-file-path "base.rkt" "racket" "private")
+#;(collection-file-path "generic-interfaces.rkt" "racket" "private")
+#;(collection-file-path "kw-syntax-local.rkt" "racket" "private")
+
+(define batch #f)
+(define clean #f)
+
 (command-line
- #:args (path-to-file.rkt)
- (let ([p (path-only path-to-file.rkt)])
-   (printf "PYCKET COMPILE FILE -- path-to-file : ~a -- p : ~a\n" path-to-file.rkt p)
-   (parameterize ([current-namespace (make-base-namespace)])
-     (if (not p)
-         (compile-file (build-path (current-directory) path-to-file.rkt))
-         (compile-file (build-path path-to-file.rkt))))))
+ #:once-each
+ [("-b" "--batch") "compile the Racket modules statically listed here" (set! batch #t)]
+ [("--clean") "remove all the generated pycket .zo files for racket modules" (set! clean #t)]
+ #:args paths
+ (parameterize ([current-namespace (make-base-namespace)])
+   (when batch
+     (for ([p-list (in-list racket-modules)])
+       (let* ([mod-name (format "~a.rkt" (car p-list))]
+              [dirs (cdr p-list)]
+              [p (apply collection-file-path (cons mod-name dirs))])
+         (printf "PYCKET COMPILE FILE -- compiling : ~a\n" p)
+         (compile-file p))))
+   (when (not (null? paths))
+     (for ([p (in-list paths)])
+       (let* ([path-to-file.rkt (string->path p)]
+              [p (path-only path-to-file.rkt)])
+         (printf "PYCKET COMPILE FILE -- path-to-file : ~a -- p : ~a\n" path-to-file.rkt p)
+         (if (not p)
+             (compile-file (build-path (current-directory) path-to-file.rkt))
+             (compile-file (build-path path-to-file.rkt))))))
+
+   (when clean
+     (for ([p-list (in-list racket-modules)])
+       (let* ([mod-name (format "~a.rkt" (car p-list))]
+              [dirs (cdr p-list)]
+              [p (apply collection-file-path (cons mod-name dirs))])
+         (let* ((d (path-only p))
+                (zo-name (format "~a_rkt.zo" (car p-list)))
+                (zo-path (build-path d "pycket-compiled" zo-name)))
+           (printf "REMOVING : ~a\n" zo-path)
+           (when (file-exists? zo-path)
+             (delete-file zo-path))))))))
